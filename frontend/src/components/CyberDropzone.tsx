@@ -39,7 +39,13 @@ export function CyberDropzone({
           : 'border-white/20 hover:border-cyan-400/50 hover:bg-white/5'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
-      <input {...getInputProps()} />
+      <input
+        {...getInputProps({
+          id: 'resume-upload',
+          name: 'resumes',
+          'aria-label': 'Upload resumes',
+        })}
+      />
       {children || (
         <div className="flex flex-col items-center gap-2">
           <span className="text-3xl">📄</span>

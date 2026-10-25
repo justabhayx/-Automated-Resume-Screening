@@ -65,6 +65,8 @@ export default function Dashboard() {
     }))
   }, [results])
 
+  const hasResults = results && results.candidates.length > 0
+
   return (
     <div className="p-6 space-y-6 max-w-7xl mx-auto">
       {/* Header */}
@@ -76,8 +78,12 @@ export default function Dashboard() {
       {/* Input Section */}
       <CyberCard className="grid gap-6 md:grid-cols-2">
         <div className="space-y-4">
-          <label className="block font-mono text-sm text-gray-300 mb-1">Job Description</label>
+          <label htmlFor="job-description" className="block font-mono text-sm text-gray-300 mb-1">
+            Job Description
+          </label>
           <textarea
+            id="job-description"
+            name="job_description"
             rows={8}
             placeholder="Paste the full job description here..."
             value={jobDesc}
@@ -92,27 +98,59 @@ export default function Dashboard() {
       <div className="flex gap-4 justify-end">
         <CyberButton variant="secondary" onClick={reset}>Reset</CyberButton>
         <CyberButton variant="primary" onClick={handleScreen} disabled={loading || !jobDesc || files.length === 0}>Screen Candidates</CyberButton>
-        <CyberButton variant="ghost" onClick={handleExport} disabled={!results}>Export CSV</CyberButton>
+        <CyberButton variant="ghost" onClick={handleExport} disabled={!hasResults}>Export CSV</CyberButton>
       </div>
 
       {/* Loading State */}
       {loading && <CyberLoader />}
 
       {/* Error State */}
-      {error && (
+      {error && !loading && (
         <div className="p-4 rounded-md bg-red-900/30 border border-red-500/30">
-          <p className="font-mono text-sm text-red-300">{error}</p>
+          <p className="font-mono text-sm text-red-300">Screening failed: {error}</p>
+        </div>
+      )}
+
+      {/* Per-file processing errors returned by the backend */}
+      {results && results.errors.length > 0 && !loading && (
+        <div className="p-4 rounded-md bg-amber-900/30 border border-amber-500/30">
+          <p className="font-mono text-sm text-amber-300 mb-2">
+            {results.errors.length} file(s) could not be processed:
+          </p>
+          <ul className="font-mono text-xs text-amber-200/80 list-disc list-inside space-y-1">
+            {results.errors.map((err, i) => (
+              <li key={i}>
+                <span className="text-amber-300">{err.filename}:</span> {err.error}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
       {/* Results Table */}
-      {results && results.candidates.length > 0 && (
+      {hasResults && (
         <CyberCard className="overflow-x-auto">
+          <h2 className="font-mono text-lg text-cyan-400 mb-4 px-4 pt-4">
+            Ranked Candidates ({results.candidates.length})
+          </h2>
           <CyberTable
             headers={tableHeaders}
             data={tableData}
           />
+          <div className="px-4 pb-4 font-mono text-xs text-gray-500">
+            Click a column header to sort. Scores shown as percentages.
+          </div>
         </CyberCard>
+      )}
+
+      {/* No candidates returned but request succeeded */}
+      {results && results.candidates.length === 0 && results.errors.length === 0 && !loading && (
+        <div className="p-4 rounded-md bg-gray-900/40 border border-white/10">
+          <p className="font-mono text-sm text-gray-400">
+            Screening completed, but no candidates were ranked. All submitted files
+            produced no extractable text.
+          </p>
+        </div>
       )}
 
       {/* Candidate Detail Modal */}
