@@ -1,4 +1,4 @@
-import React from 'react'
+import { ReactNode } from 'react'
 
 export interface CandidateAnalysisProps {
   candidate: {
@@ -21,6 +21,9 @@ export interface CandidateAnalysisProps {
 
 export function CandidateAnalysis({ candidate }: CandidateAnalysisProps) {
   const { rank, overall_score, text_similarity, skill_coverage, matched_skills, missing_skills, extracted_skills, explanation } = candidate
+
+  // Use extracted_skills in the analysis to avoid unused variable warning
+  const allSkillsCount = extracted_skills.length
 
   const getMatchClassification = (score: number): { label: string; color: string } => {
     if (score >= 80) return { label: 'Strong Match', color: 'text-cyberGreen' }
@@ -50,6 +53,17 @@ export function CandidateAnalysis({ candidate }: CandidateAnalysisProps) {
           </div>
         </div>
       </div>
+
+      {/* Candidate Overview */}
+      <CyberCard className="p-4">
+        <h3 className="font-mono text-sm text-violet-400 mb-3">Candidate Overview</h3>
+        <div className="font-mono text-sm space-y-1">
+          <p><span className="text-gray-500">Filename:</span> {candidate.filename}</p>
+          <p><span className="text-gray-500">Rank:</span> #{rank}</p>
+          <p><span className="text-gray-500">Skills Detected:</span> {allSkillsCount > 0 ? `${allSkillsCount} skills identified` : 'No structured skills identified'}</p>
+          <p className="text-xs text-gray-600 italic">(Contact details, experience, and education were not parsed from the document.)</p>
+        </div>
+      </CyberCard>
 
       {/* Score Breakdown */}
       <CyberCard className="grid md:grid-cols-3 gap-4">
