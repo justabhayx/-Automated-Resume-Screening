@@ -1,0 +1,14 @@
+# Environment
+.env
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Data
+storage/resumes/
+*.db
+
+# OS
+.DS_Store
+Thumbs.db
