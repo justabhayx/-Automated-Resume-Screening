@@ -6,3 +6,5 @@ Pillow
 scikit-learn
 pytest
 httpx
+pypdf
+python-docx
