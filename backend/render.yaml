@@ -1,0 +1,19 @@
+# Render deployment configuration for the backend
+# This tells Render to build and deploy the backend as a Docker image
+
+services:
+  - type: web
+    name: automated-resume-screening-szkl
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: |
+      # Build the Docker image
+      docker build -t backend-image .
+    startCommand: |
+      # Run the container
+      docker run -p 8000:8000 -e PORT=8000 -e FRONTEND_URL=${FRONTEND_URL} backend-image
+    envVars:
+      - key: FRONTEND_URL
+        value: https://automated-resume-screening-git-main-justabhayx.vercel.app
+    healthCheckPath: /api/health
