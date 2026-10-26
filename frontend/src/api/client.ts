@@ -3,14 +3,11 @@ import axios from 'axios'
 // Use the deployed backend URL in production when configured.
 // Keep the Vite proxy for local development.
 const apiBaseURL = import.meta.env.PROD
-  ? (import.meta.env.VITE_API_BASE_URL || '/api')
-  : '/api'
+  ? (import.meta.env.VITE_API_BASE_URL || '')
+  : ''
 
 export const api = axios.create({
   baseURL: apiBaseURL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
 })
 
 api.interceptors.response.use(

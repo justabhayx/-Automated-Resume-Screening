@@ -17,6 +17,7 @@ cors_origins = [
     "http://localhost:3000",
     "http://127.0.0.1:3000",
     "https://automated-resume-screening-six.vercel.app",
+    "https://automated-resume-screening-git-main-justabhayx.vercel.app"
 ]
 
 # If a specific frontend URL is provided via environment variable, add it

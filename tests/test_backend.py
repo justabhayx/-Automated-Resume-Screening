@@ -3,13 +3,13 @@ from fastapi.testclient import TestClient
 from docx import Document
 from io import BytesIO
 from PIL import Image
-import os
 
 from backend.main import app
 from backend.matcher import normalize_text, extract_skills_from_text, calculate_text_similarity, evaluate_candidate
 from backend.parser import extract_text_from_docx, extract_text_from_image
 
 client = TestClient(app)
+
 
 def test_health_endpoint():
     response = client.get("/api/health")
@@ -18,11 +18,13 @@ def test_health_endpoint():
     assert data["status"] == "ok"
     assert "version" in data
 
+
 def test_root_endpoint():
     response = client.get("/")
     assert response.status_code == 200
     data = response.json()
     assert "message" in data
+
 
 def test_text_normalization():
     raw = "  Python, FastAPI & Machine Learning! 100%  "
@@ -31,6 +33,7 @@ def test_text_normalization():
     assert "fastapi" in norm
     assert "machine learning" in norm
     assert "!" not in norm
+
 
 def test_skill_extraction():
     text = "Experienced Senior Python Engineer with skills in FastAPI, Docker, PostgreSQL, and React. Strong leadership and Agile teamwork."
@@ -43,6 +46,7 @@ def test_skill_extraction():
     assert "leadership" in skills
     assert "agile" in skills
 
+
 def test_text_similarity():
     jd = "We are looking for a Python developer with FastAPI and PostgreSQL experience."
     resume_good = "Software engineer skilled in Python, FastAPI, and PostgreSQL databases."
@@ -52,6 +56,7 @@ def test_text_similarity():
     sim_bad = calculate_text_similarity(jd, resume_bad)
 
     assert sim_good > sim_bad
+
 
 def test_evaluate_candidate():
     jd = "Looking for Python, FastAPI, Docker, and PostgreSQL."
@@ -63,6 +68,7 @@ def test_evaluate_candidate():
     assert "python" in eval_res["matched_skills"]
     assert "explanation" in eval_res
     assert "disclaimer" in eval_res
+
 
 def test_screen_endpoint_validation():
     # Missing job description
@@ -82,6 +88,7 @@ def test_screen_endpoint_validation():
         files={"resumes": ("resume.docx", bio.read(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")}
     )
     assert response.status_code in (400, 422)
+
 
 def test_screen_endpoint_valid_docx():
     jd = "We need a Python developer with FastAPI and React experience."
@@ -122,15 +129,110 @@ def test_screen_endpoint_valid_docx():
     assert candidates[1]["rank"] == 2
     assert candidates[0]["overall_score"] > candidates[1]["overall_score"]
 
-def test_extract_text_from_image():
-    # Create a simple image with text
-    img = Image.new('RGB', (200, 50), color=(255, 255, 255))
-    # Note: Adding text to image via Pillow is complex, assume Tesseract can read a simple image if provided.
-    # For this test, just ensure the function doesn't crash on valid image bytes
+
+def test_screen_endpoint_cors_preflight():
+    """
+    Verify that the Vercel frontend origin is allowed by CORS preflight.
+    The browser sends an OPTIONS request with Origin header before the actual
+    POST /api/screen call.
+    """
+    response = client.options(
+        "/api/screen",
+        headers={
+            "Origin": "https://automated-resume-screening-six.vercel.app",
+            "Access-Control-Request-Method": "POST",
+            "Access-Control-Request-Headers": "content-type",
+        },
+    )
+    assert response.status_code == 200
+    # The CORS middleware should echo back the allowed origin
+    assert "Access-Control-Allow-Origin" in response.headers
+
+
+def test_screen_endpoint_unsupported_file_type():
+    """
+    Verify that unsupported file types are rejected and reported in the
+    response's 'errors' array without crashing the whole request.
+    """
+    doc = Document()
+    doc.add_paragraph("Valid resume content with skills: Python.")
     bio = BytesIO()
-    img.save(bio, format='PNG')
+    doc.save(bio)
+
+    response = client.post(
+        "/api/screen",
+        data={"job_description": "Looking for Python developer."},
+        files=[
+            ("resumes", ("unsupported.exe", b"MZ\x90\x00", "application/octet-stream")),
+            ("resumes", ("valid.docx", bio.read(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document")),
+        ],
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["total_errors"] >= 1
+    assert any(
+        e["filename"] == "unsupported.exe" and "Unsupported file extension" in e["error"]
+        for e in data["errors"]
+    )
+    assert data["total_successfully_screened"] == 1
+    assert data["candidates"][0]["filename"] == "valid.docx"
+
+
+def test_screen_endpoint_response_contract():
+    """
+    Verify the exact JSON structure the frontend expects from /api/screen.
+    This is the response contract that the frontend useScreen hook relies on.
+    """
+    doc = Document()
+    doc.add_paragraph("Alex Johnson - Senior Backend Engineer")
+    doc.add_paragraph("Skills: Python, FastAPI, Docker, PostgreSQL, AWS.")
+    bio = BytesIO()
+    doc.save(bio)
     bio.seek(0)
 
-    # This might return empty string if no text is drawn, but should not raise exception
-    text = extract_text_from_image(bio.read())
-    assert isinstance(text, str)
+    response = client.post(
+        "/api/screen",
+        data={"job_description": "Senior Python Engineer with FastAPI, Docker, PostgreSQL experience."},
+        files=[
+            ("resumes", ("alex_resume.docx", bio.read(), "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+        ]
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+
+    # Top-level fields
+    assert "job_description_summary" in data
+    assert "total_submitted" in data
+    assert "total_successfully_screened" in data
+    assert "total_errors" in data
+    assert "candidates" in data
+    assert "errors" in data
+
+    assert data["total_submitted"] == 1
+    assert data["total_successfully_screened"] == 1
+    assert data["total_errors"] == 0
+
+    candidate = data["candidates"][0]
+    # Required fields the frontend CandidateAnalysis component reads
+    assert "rank" in candidate
+    assert "filename" in candidate
+    assert "overall_score" in candidate
+    assert "text_similarity" in candidate
+    assert "skill_coverage" in candidate
+    assert "matched_skills" in candidate
+    assert "missing_skills" in candidate
+    assert "extracted_skills" in candidate
+    assert "explanation" in candidate
+    assert "disclaimer" in candidate
+
+    # Explanation sub-fields
+    assert "strengths" in candidate["explanation"]
+    assert "skill_gaps" in candidate["explanation"]
+    assert "summary" in candidate["explanation"]
+
+    # Scores are numbers in 0-100
+    assert 0 <= candidate["overall_score"] <= 100
+    assert 0 <= candidate["text_similarity"] <= 100
+    assert 0 <= candidate["skill_coverage"] <= 100

@@ -38,11 +38,9 @@ export function useScreen(): UseScreenReturn {
         formData.append('resumes', file)
       })
 
-      const response = await api.post<ScreenResponse>('/screen', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      })
+      // Note: Do not set Content-Type for multipart form data; axios/browser will handle it
+      const response = await api.post<ScreenResponse>('/api/screen', formData)
+      console.log('API Response (success):', response.data) // Debugging
 
       setResults(response.data)
     } catch (err: any) {
