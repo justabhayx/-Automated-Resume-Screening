@@ -7,15 +7,19 @@ import pytesseract
 
 MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 MB
 
-# Configure Tesseract OCR for Windows
-TESSERACT_PATH = os.environ.get(
-    "TESSERACT_PATH",
-    r"C:\Program Files\Tesseract-OCR\tesseract.exe",
-)
-try:
-    pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
-except Exception:
-    pass
+# Configure Tesseract OCR for Windows and Linux
+if os.name == "nt":
+    TESSERACT_PATH = os.environ.get(
+        "TESSERACT_PATH",
+        r"C:\Program Files\Tesseract-OCR\tesseract.exe",
+    )
+else:
+    TESSERACT_PATH = os.environ.get(
+        "TESSERACT_PATH",
+        "/usr/bin/tesseract",
+    )
+
+pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
 
 
 def extract_text_from_pdf(file_bytes: bytes) -> str:
